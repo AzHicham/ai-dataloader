@@ -22,8 +22,8 @@ impl Len for SequentialSampler {
     }
 }
 impl IntoIterator for SequentialSampler {
-    type IntoIter = Range<usize>;
     type Item = usize;
+    type IntoIter = Range<usize>;
     fn into_iter(self) -> Self::IntoIter {
         0..self.data_source_len
     }

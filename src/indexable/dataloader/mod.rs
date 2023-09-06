@@ -153,6 +153,19 @@ where
     }
 }
 
+impl<'dataset, D, S, C> ExactSizeIterator for SingleProcessDataLoaderIter<'dataset, D, S, C>
+where
+    D: Dataset + Sync,
+    S: Sampler,
+    S::IntoIter: ExactSizeIterator,
+    C: Collate<D::Sample>,
+    D::Sample: Send,
+{
+    fn len(&self) -> usize {
+        self.sampler_iter.len()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -175,6 +188,7 @@ mod tests {
             .build();
         assert_eq!(dataloader.len(), dataloader.batch_sampler.len());
         assert_eq!(dataloader.len(), 5);
+        assert_eq!(dataloader.iter().len(), 5);
     }
 
     #[test]
