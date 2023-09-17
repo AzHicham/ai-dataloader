@@ -6,8 +6,7 @@ use crate::{
     sampler::{BatchSampler, Sampler, SequentialSampler},
     Dataset, Len,
 };
-use std::sync::mpsc;
-use std::sync::mpsc::sync_channel;
+use crossbeam_channel::{bounded, select, Receiver, Sender};
 use std::thread::JoinHandle;
 
 mod builder;
@@ -83,8 +82,9 @@ where
     CO: Send,
 {
     /// Number of sample yielded.
-    num_yielded: u64,
-    rx: mpsc::Receiver<CO>,
+    remaining_batch: usize,
+    rx: Receiver<CO>,
+    tx_cancel: Sender<()>,
     thread_handle: Option<JoinHandle<()>>,
 }
 
@@ -100,12 +100,15 @@ where
         C::Output: Send,
         D::Sample: Send,
     {
-        let (tx, rx) = sync_channel(loader.prefetch_size);
+        let (tx, rx) = bounded(loader.prefetch_size);
+        let (tx_cancel, rx_cancel) = bounded(0);
 
-        let mut data_fetcher = MapDatasetFetcher {
+        let data_fetcher = MapDatasetFetcher {
             dataset: loader.dataset,
             collate_fn: loader.collate_fn,
         };
+        let remaining_batch = loader.batch_sampler.len();
+
         let thread_handle = std::thread::spawn(move || {
             let mut sampler_iter = loader.batch_sampler.iter();
             // In this dedicated thread :
@@ -113,18 +116,18 @@ where
             // the loop will pause if there is no more space in the channel/buffer
             while let Some(index) = sampler_iter.next() {
                 let data = data_fetcher.fetch(index);
-                if let Err(_err) = tx.send(data) {
-                    // An error occurred
-                    // rx has been dropped
-                    drop(tx);
-                    return;
+
+                select! {
+                    send(tx, data) -> _ => {}
+                    recv(rx_cancel) -> _ => return,
                 }
             }
         });
 
         SingleProcessDataLoaderIter {
-            num_yielded: 0,
+            remaining_batch,
             rx,
+            tx_cancel,
             thread_handle: Some(thread_handle),
         }
     }
@@ -147,9 +150,9 @@ where
 {
     fn drop(&mut self) {
         if let Some(thread_handle) = self.thread_handle.take() {
-            // This call may deadlock
-            // TODO: Find a way to stop the background thread before joining
-            //let _ = thread_handle.join();
+            // Cancel the background thread
+            let _ = self.tx_cancel.send(());
+            let _ = thread_handle.join();
         };
     }
 }
@@ -163,14 +166,14 @@ where
         let data = self.next_data();
 
         if let Some(data) = data {
-            self.num_yielded += 1;
+            self.remaining_batch -= 1;
             return Some(data);
         }
         None
     }
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let (lower, upper) = self.sampler_iter.size_hint();
-        (lower, upper)
+        let lower = self.remaining_batch;
+        (lower, Some(lower))
     }
 }
 
@@ -190,15 +193,7 @@ where
     }
 }
 
-impl<'dataset, D, S, C> ExactSizeIterator for SingleProcessDataLoaderIter<'dataset, D, S, C>
-where
-    D: Dataset + Sync,
-    S: Sampler,
-    S::IntoIter: ExactSizeIterator,
-    C: Collate<D::Sample>,
-    D::Sample: Send,
-{
-}
+impl<CO> ExactSizeIterator for SingleProcessDataLoaderIter<CO> where CO: Send {}
 
 #[cfg(test)]
 mod tests {
@@ -295,7 +290,7 @@ mod tests {
         let dataloader = DataLoader::builder(dataset)
             .collate_fn(NoOpCollate)
             .batch_size(2)
-            .prefetch_size(4)
+            .prefetch_size(2)
             .build();
 
         let mut iter = dataloader.iter();
