@@ -4,12 +4,14 @@ use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use ndarray::Array3;
 use ndarray_rand::rand_distr::Uniform;
 use ndarray_rand::RandomExt;
+use std::sync::Arc;
 
 const NUM_CLASS: usize = 20;
 const IMAGE_SIZE: usize = 50;
 const DATASET_LEN: usize = 500;
 
 /// Dataset that return the same random image each time.
+#[derive(Clone)]
 pub struct RandomUnique {
     image: Array3<u8>,
 }
@@ -38,7 +40,7 @@ impl GetSample for RandomUnique {
     }
 }
 
-fn iter_all_dataset(loader: &DataLoader<RandomUnique>) -> usize {
+fn iter_all_dataset(loader: DataLoader<RandomUnique>) -> usize {
     let mut num_sample = 0;
     for (_sample, label) in loader.iter() {
         num_sample += label.len();
@@ -47,7 +49,7 @@ fn iter_all_dataset(loader: &DataLoader<RandomUnique>) -> usize {
 }
 
 fn bench(c: &mut Criterion) {
-    let loader = DataLoader::builder(RandomUnique::default())
+    let loader = DataLoader::builder(Arc::new(RandomUnique::default()))
         .batch_size(16)
         .build();
 
@@ -55,7 +57,9 @@ fn bench(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("throughput-example");
     group.throughput(Throughput::Bytes(BYTES));
-    group.bench_function("iter_all_dataset", |b| b.iter(|| iter_all_dataset(&loader)));
+    group.bench_function("iter_all_dataset", |b| {
+        b.iter(|| iter_all_dataset(loader.clone()))
+    });
     group.finish();
 }
 

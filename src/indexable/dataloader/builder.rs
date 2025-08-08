@@ -4,6 +4,7 @@ use crate::{
     Dataset,
 };
 use std::cmp::max;
+use std::sync::Arc;
 
 #[cfg(feature = "rayon")]
 use crate::THREAD_POOL;
@@ -22,7 +23,7 @@ where
     C: Collate<D::Sample>,
 {
     /// The dataset from which the loader will yield the data.
-    dataset: D,
+    dataset: Arc<D>,
     /// The sampler used to gather elements of the batch together.
     batch_sampler: BatchSampler<S>,
     /// Used to collate the data together.
@@ -42,7 +43,7 @@ where
 {
     /// Create a new [`Builder`], with default fields.
     /// By default the [`Builder`] is sequential and have a `batch_size` of one.
-    pub fn new(dataset: D) -> Self {
+    pub fn new(dataset: Arc<D>) -> Self {
         #[cfg(feature = "rayon")]
         let num_threads = std::thread::available_parallelism()
             .unwrap_or(std::num::NonZeroUsize::new(1).unwrap())
@@ -180,48 +181,50 @@ mod tests {
 
     #[test]
     fn api() {
-        let _loader = Builder::new(vec![1, 2, 3, 4]).build();
-        let _loader = Builder::new(vec![1, 2, 3, 4]).shuffle().build();
+        let _loader = Builder::new(Arc::new(vec![1, 2, 3, 4])).build();
+        let _loader = Builder::new(Arc::new(vec![1, 2, 3, 4])).shuffle().build();
 
-        let _loader = Builder::new(vec![1, 2, 3, 4]).batch_size(2).build();
+        let _loader = Builder::new(Arc::new(vec![1, 2, 3, 4]))
+            .batch_size(2)
+            .build();
 
-        let _loader = Builder::new(vec![1, 2, 3, 4])
+        let _loader = Builder::new(Arc::new(vec![1, 2, 3, 4]))
             .batch_size(2)
             .drop_last()
             .build();
 
-        let _loader = Builder::new(vec![1, 2, 3, 4])
+        let _loader = Builder::new(Arc::new(vec![1, 2, 3, 4]))
             .batch_size(2)
             .drop_last()
             .collate_fn(NoOpCollate)
             .build();
 
-        let _loader = Builder::new(vec![1, 2, 3, 4])
+        let _loader = Builder::new(Arc::new(vec![1, 2, 3, 4]))
             .batch_size(2)
             .drop_last()
             .sampler::<RandomSampler>()
             .build();
 
-        let _loader = Builder::new(vec![1, 2, 3, 4])
+        let _loader = Builder::new(Arc::new(vec![1, 2, 3, 4]))
             .batch_size(2)
             .drop_last()
             .sampler::<RandomSampler>()
             .collate_fn(NoOpCollate)
             .build();
 
-        let _loader = Builder::new(vec![1, 2, 3, 4])
+        let _loader = Builder::new(Arc::new(vec![1, 2, 3, 4]))
             .shuffle()
             .batch_size(2)
             .drop_last()
             .collate_fn(NoOpCollate)
             .build();
 
-        let _loader = Builder::new(vec![1, 2, 3, 4])
+        let _loader = Builder::new(Arc::new(vec![1, 2, 3, 4]))
             .collate_fn(NoOpCollate)
             .batch_size(2)
             .build();
 
-        let _loader = Builder::new(vec![1, 2, 3, 4])
+        let _loader = Builder::new(Arc::new(vec![1, 2, 3, 4]))
             .collate_fn(|x| x)
             .batch_size(2)
             .build();

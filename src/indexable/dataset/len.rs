@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque};
+use std::sync::Arc;
 
 /// Basic trait for anything that could have a length.
 /// Even if a lot of struct have a `len()` method in the standard library,
@@ -60,5 +61,14 @@ impl<T, H> Len for HashSet<T, H> {
 impl<T> Len for BinaryHeap<T> {
     fn len(&self) -> usize {
         self.len()
+    }
+}
+
+impl<T> Len for Arc<T>
+where
+    T: Len,
+{
+    fn len(&self) -> usize {
+        self.as_ref().len()
     }
 }

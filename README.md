@@ -22,8 +22,10 @@ More info in the [documentation](https://docs.rs/ai-dataloader/).
 Examples can be found in the [examples](examples/) folder but here there is a simple one
 
 ```rust 
-use ai_dataloader::DataLoader;
-let loader = DataLoader::builder(vec![(0, "hola"), (1, "hello"), (2, "hallo"), (3, "bonjour")]).batch_size(2).shuffle().build();
+use ai_dataloader::indexable::DataLoader;
+use std::sync::Arc;
+let dataset = vec![(0, "hola"), (1, "hello"), (2, "hallo"), (3, "bonjour")];
+let loader = DataLoader::builder(Arc::new(dataset)).batch_size(2).shuffle().build();
 
 for (label, text) in &loader {     
     println!("Label {label:?}");

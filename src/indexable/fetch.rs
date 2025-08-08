@@ -2,6 +2,7 @@ use crate::{
     collate::{Collate, DefaultCollate},
     Dataset,
 };
+use std::sync::Arc;
 
 #[cfg(feature = "rayon")]
 use crate::THREAD_POOL;
@@ -34,7 +35,7 @@ where
     C: Collate<D::Sample>,
 {
     /// The dataset data will be fetch from.
-    pub(crate) dataset: D,
+    pub(crate) dataset: Arc<D>,
     /// The function (generic struct) used to collate data together.
     pub(crate) collate_fn: C,
 }

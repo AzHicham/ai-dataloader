@@ -24,16 +24,16 @@
 //!
 //! `PyTorch` | `ai-dataloader` | Notes
 //! --------|-----------------|-------
-//! `DataLoader(dataset)` | `DataLoader::builder(dataset).build()` | Create a `DataLoader` with default parameters
-//! `DataLoader(dataset, batch_size=2)` | `DataLoader::builder(dataset).batch_size(2).build()` | Setup the batch size
-//! `DataLoader(dataset, shuffle=True)` | `DataLoader::builder(dataset).shuffle().build()` | Shuffle the data
-//! `DataLoader(dataset, sampler=CustomSampler)` | `DataLoader::builder(dataset).sampler::<CustomSampler>().build()` | Provide a custom sampler
+//! `DataLoader(dataset)` | `DataLoader::builder(Arc::new(dataset)).build()` | Create a `DataLoader` with default parameters
+//! `DataLoader(dataset, batch_size=2)` | `DataLoader::builder(Arc::new(dataset)).batch_size(2).build()` | Setup the batch size
+//! `DataLoader(dataset, shuffle=True)` | `DataLoader::builder(Arc::new(dataset)).shuffle().build()` | Shuffle the data
+//! `DataLoader(dataset, sampler=CustomSampler)` | `DataLoader::builder(Arc::new(dataset)).sampler::<CustomSampler>().build()` | Provide a custom sampler
 //!
 //! ### Combined options
 //!
 //! `PyTorch` | `ai-dataloader`
 //! --------|-----------------
-//! `DataLoader(dataset, shuffle=True, batch_size=2, drop_last=True, collate_fn=CustomCollate)` | `DataLoaderBuilder::new(dataset).shuffle().batch_size(2).drop_last().collate_fn(CustomCollate).build()`
+//! `DataLoader(dataset, shuffle=True, batch_size=2, drop_last=True, collate_fn=CustomCollate)` | `DataLoaderBuilder::new(Arc::new(dataset)).shuffle().batch_size(2).drop_last().collate_fn(CustomCollate).build()`
 //!
 //! ### `DataLoader` iteration
 //!

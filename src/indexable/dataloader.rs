@@ -7,6 +7,7 @@ use crate::{
     Dataset, Len,
 };
 use crossbeam_channel::{bounded, select, Receiver, Sender};
+use std::sync::Arc;
 use std::thread::JoinHandle;
 
 mod builder;
@@ -17,8 +18,10 @@ use builder::Builder;
 ///
 /// ```rust
 /// use ai_dataloader::indexable::DataLoader;
+/// use std::sync::Arc;
 ///
-/// let loader = DataLoader::builder(vec![(0, "hola"), (1, "hello"), (2, "hallo"), (3, "bonjour")]).batch_size(2).shuffle().build();
+/// let dataset = vec![(0, "hola"), (1, "hello"), (2, "hallo"), (3, "bonjour")];
+/// let loader = DataLoader::builder(Arc::new(dataset)).batch_size(2).shuffle().build();
 ///
 /// for (label, text) in loader.iter() {
 ///     println!("Label {label:?}");
@@ -29,7 +32,7 @@ use builder::Builder;
 #[derive(Debug, Clone, PartialEq, PartialOrd, Hash, Eq, Ord)]
 pub struct DataLoader<D, S = SequentialSampler, C = DefaultCollate> {
     /// Dataset from which to load the data.
-    dataset: D,
+    dataset: Arc<D>,
     /// Return a batch of indices at a time.
     batch_sampler: BatchSampler<S>,
     /// Collate function.
@@ -44,7 +47,7 @@ where
     DefaultCollate: Collate<D::Sample>,
 {
     /// Helper to return a [`DataLoader`] builder.
-    pub fn builder(dataset: D) -> Builder<D, SequentialSampler, DefaultCollate> {
+    pub fn builder(dataset: Arc<D>) -> Builder<D, SequentialSampler, DefaultCollate> {
         Builder::new(dataset)
     }
 }
@@ -104,7 +107,7 @@ where
         let (tx_cancel, rx_cancel) = bounded(0);
 
         let data_fetcher = MapDatasetFetcher {
-            dataset: loader.dataset,
+            dataset: loader.dataset.clone(),
             collate_fn: loader.collate_fn,
         };
         let remaining_batch = loader.batch_sampler.len();
@@ -207,6 +210,7 @@ mod tests {
     use ndarray_rand::rand_distr::{Normal, Uniform};
     use ndarray_rand::RandomExt;
     use std::collections::HashMap;
+    use std::sync::Arc;
     use std::thread::sleep;
     use std::time::{Duration, Instant};
 
@@ -232,7 +236,7 @@ mod tests {
     #[test]
     fn len() {
         let dataset = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-        let dataloader = DataLoader::builder(dataset)
+        let dataloader = DataLoader::builder(Arc::new(dataset))
             .batch_size(2)
             .drop_last()
             .build();
@@ -247,7 +251,7 @@ mod tests {
     #[test]
     fn one_dimension_basic() {
         let dataset = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-        let dataloader = DataLoader::builder(dataset).batch_size(2).build();
+        let dataloader = DataLoader::builder(Arc::new(dataset)).batch_size(2).build();
 
         let mut iter = dataloader.iter();
         assert_eq!(iter.next(), Some(array![1, 2]));
@@ -261,7 +265,7 @@ mod tests {
     #[test]
     fn two_iteration() {
         let dataset = vec![1, 2, 3, 4];
-        let dataloader = DataLoader::builder(dataset).batch_size(2).build();
+        let dataloader = DataLoader::builder(Arc::new(dataset)).batch_size(2).build();
 
         let mut iter = dataloader.clone().iter();
         assert_eq!(iter.next(), Some(array![1, 2]));
@@ -276,7 +280,7 @@ mod tests {
     #[test]
     fn one_dimension_basic_string() {
         let dataset = vec![String::from("a"), String::from("b")];
-        let dataloader = DataLoader::builder(dataset).build();
+        let dataloader = DataLoader::builder(Arc::new(dataset)).build();
 
         let mut iter = dataloader.iter();
         assert_eq!(iter.next(), Some(vec![String::from("a")]));
@@ -287,7 +291,7 @@ mod tests {
     #[test]
     fn prefetching() {
         let dataset = FakeDataset;
-        let dataloader = DataLoader::builder(dataset)
+        let dataloader = DataLoader::builder(Arc::new(dataset))
             .collate_fn(NoOpCollate)
             .batch_size(2)
             .prefetch_size(2)
@@ -316,7 +320,7 @@ mod tests {
     fn collate() {
         let dataset = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-        let dataloader = DataLoader::builder(dataset)
+        let dataloader = DataLoader::builder(Arc::new(dataset))
             .batch_size(2)
             .collate_fn(NoOpCollate)
             .build();
@@ -353,7 +357,7 @@ mod tests {
         };
 
         if shuffle {
-            let loader = DataLoader::builder(dataset.clone())
+            let loader = DataLoader::builder(Arc::new(dataset.clone()))
                 .batch_size(batch_size)
                 .shuffle()
                 .build();
@@ -365,7 +369,7 @@ mod tests {
                 dataset,
             })
         } else {
-            let loader = DataLoader::builder(dataset.clone())
+            let loader = DataLoader::builder(Arc::new(dataset.clone()))
                 .batch_size(batch_size)
                 .build();
 
@@ -532,7 +536,7 @@ mod tests {
             (0, vec![2, 45, 4, 0]),
         ];
 
-        let loader = DataLoader::builder(dataset).batch_size(2).build();
+        let loader = DataLoader::builder(Arc::new(dataset)).batch_size(2).build();
 
         let mut iter = loader.iter();
 
