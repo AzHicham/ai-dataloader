@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::sync::Arc;
 
 mod len;
 pub use len::Len;
@@ -20,8 +21,8 @@ pub use get_sample::GetSample;
 ///
 /// pub trait Dataset<T>: Len + std::ops::Index<usize>
 /// where
-/// T: Collate<Vec<Self::Output>>,
-/// Self::Output: Sized,
+///     T: Collate<Vec<Self::Output>>,
+///     Self::Output: Sized,
 /// {
 /// }
 /// ```
@@ -47,3 +48,4 @@ where
 
 impl<T> Dataset for Vec<T> where T: Clone {}
 impl<T> Dataset for VecDeque<T> where T: Clone {}
+impl<T> Dataset for Arc<T> where T: Dataset {}
